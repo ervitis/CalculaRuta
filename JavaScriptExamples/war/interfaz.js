@@ -3,13 +3,14 @@ var lng = 0;
 var lat = 0;
 var lngRutaAnterior, latRutaAnterior;
 var lineaRuta = {};
-var TIMEOUT = 1000;
+var TIMEOUT = 3000;
 var TIMEOUTTRAFFIC = 60000;
 var TIMEOUTTRAFFICDISABLED = 750;
 var temporizadorInterval;
 var origen, destino;
 var capaTrafico;
 var bActualizaCapaTrafico;
+var bDetener;
 
 /**
  * Crea el mapa usando la API de Google maps
@@ -51,7 +52,7 @@ function onCrearMapa(){
 				temporizadorIntervalTrafico = setTimeout(function(){
 					actualizaTraficoMapa(bActualizaCapaTrafico)
 				}, TIMEOUTTRAFFICDISABLED);
-				temporizadorInterval = setTimeout(dibujaLineaYActualizaMapa, TIMEOUT);
+				temporizadorInterval = setInterval(dibujaLineaYActualizaMapa, TIMEOUT);
 			}
 		});
 	}
@@ -60,8 +61,12 @@ function onCrearMapa(){
 	}
 }
 
+/**
+ * Inicia variables y botones
+ */
 function inicioApp(){
 	event.preventDefault();
+	bDetener = false;
 	bActualizaCapaTrafico = true;
 	origen = '';
 	destino = '';
@@ -70,6 +75,11 @@ function inicioApp(){
 	
 }
 
+/**
+ * Actualiza el trafico del mapa dependiendo de la variable que se le pasa por parametro
+ * 
+ * @param actualiza true->actualiza false->borra
+ */
 function actualizaTraficoMapa(actualiza){
 	if (actualiza){
 		capaTrafico = new google.maps.TrafficLayer();
@@ -119,18 +129,22 @@ function dibujaLineaYActualizaMapa(){
 		lngRutaAnterior = lngRuta;
 		latRutaAnterior = latRuta;
 		
-		setTimeout(dibujaLineaYActualizaMapa, TIMEOUT);
-		
-		//console.log('Antigua: ' + latRutaAnterior + ',' + lngRutaAnterior + '       Nueva: ' + latRuta + ',' + lngRuta);
+		console.log('Antigua: ' + latRutaAnterior + ',' + lngRutaAnterior + '       Nueva: ' + latRuta + ',' + lngRuta);
 	});
 }
 
+/**
+ * Detiene la navegacion
+ */
 function detener(){
 	document.getElementById('btnComenzar').disabled = false;
 	document.getElementById('btnDetener').disabled = true;
 	clearInterval(temporizadorInterval);
 }
 
+/**
+ * Comienza la navegacion
+ */
 function comenzar(){
 	temporizadorInterval = setInterval(dibujaLineaYActualizaMapa, TIMEOUT);
 	document.getElementById('btnDetener').disabled = false;
