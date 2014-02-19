@@ -11,6 +11,8 @@ var origen, destino;
 var capaTrafico;
 var bActualizaCapaTrafico;
 var bDetener;
+var servicioDireccion;
+var renderizadoDireccion;
 
 /**
  * Crea el mapa usando la API de Google maps
@@ -33,8 +35,6 @@ function onCrearMapa(){
 					mapTypeId: google.maps.MapTypeId.ROADMAP,
 					disableDefaultUI: true
 				};
-			
-			origen = opcionesMapa.center;
 		
 			if (mapa === null){
 				mapa = new google.maps.Map(document.getElementById('divmapa'), opcionesMapa);
@@ -46,12 +46,15 @@ function onCrearMapa(){
 						title: "Inicio"
 					}
 				
+				origen = lat + ',' + lng;
+				
 				var marker = new google.maps.Marker(opcionesMarker);
 				
 				//Here goes the loop
 				temporizadorIntervalTrafico = setTimeout(function(){
 					actualizaTraficoMapa(bActualizaCapaTrafico)
 				}, TIMEOUTTRAFFICDISABLED);
+				
 				temporizadorInterval = setInterval(dibujaLineaYActualizaMapa, TIMEOUT);
 			}
 		});
@@ -118,9 +121,9 @@ function dibujaLineaYActualizaMapa(){
 			{
 				path: [posicionRutaAnterior, posicionRuta],
 				geodesic: true,
-				strokeColor: '#528ACF',
+				strokeColor: '#666633',
 				strokeOpacity: 1.0,
-				strokeWeight: 3
+				strokeWeight: 9
 			};
 		
 		posicionRuta = new google.maps.Polyline(lineaRuta);
@@ -129,7 +132,6 @@ function dibujaLineaYActualizaMapa(){
 		lngRutaAnterior = lngRuta;
 		latRutaAnterior = latRuta;
 		
-		console.log('Antigua: ' + latRutaAnterior + ',' + lngRutaAnterior + '       Nueva: ' + latRuta + ',' + lngRuta);
 	});
 }
 
@@ -152,27 +154,38 @@ function comenzar(){
 }
 
 function dibujaRuta(){
-	if (origen !== ''){
-		var opcionesDireccion =
-			{
-				origin: origen,
-				destination: destino,
-				travelMode: google.maps.DirectionsTravelMode.DRIVING,
-				unitSystem: google.maps.UnitSystem.METRIC
-			}
+	
+	if (origen !== '' || destino !== ''){
+		if (renderizadoDireccion){
+			renderizadoDireccion.setMap(null);
+			renderizadoDireccion = null;
+		}
 		
-		var servicioDireccion = new google.maps.DirectionsService();
-		servicioDireccion.route(opcionesDireccion, function(response, status){
-			if (status === google.maps.DirectionsStatus.OK){
-				new google.maps.DirectionsRenderer({
-					map: mapa,
-					directions: response
-				})
-			}
-			else{
-				alert('No ha sido posible obtener la ruta');
-			}
-		});
+		if (destino.coordenadas){
+			var opcionesDireccion =
+				{
+					origin: origen,
+					destination: destino.coordenadas,
+					travelMode: google.maps.DirectionsTravelMode.DRIVING,
+					unitSystem: google.maps.UnitSystem.METRIC
+				}
+			
+			servicioDireccion = new google.maps.DirectionsService();
+			servicioDireccion.route(opcionesDireccion, function(response, status){
+				if (status === google.maps.DirectionsStatus.OK){
+					renderizadoDireccion = new google.maps.DirectionsRenderer({
+						map: mapa,
+						directions: response
+					});
+				}
+				else{
+					alert('No ha sido posible obtener la ruta');
+				}
+			});
+		}
+		else{
+			alert('Destino no localizable');
+		}
 	}
 }
 
@@ -199,11 +212,14 @@ function getAutocomplete(event){
 				
 				if (lugar.geometry){
 					//si tiene geometry
-					if (lugar.geometry.viewport){
-						console.log(lugar.geometry.viewport);
-					}
-					else{
-						console.log(lugar.geometry.location);
+					if (lugar.geometry.location){
+						destino =
+							{
+								coordenadas: lugar.geometry.location.lat() + ',' + lugar.geometry.location.lng(),
+								nombre: lugar.formatted_address
+							};
+						
+						dibujaRuta();
 					}
 				}
 				else{
