@@ -3,13 +3,19 @@ var lng = 0;
 var lat = 0;
 var lngRutaAnterior, latRutaAnterior;
 var lineaRuta = {};
-var TIMEOUT = 3000;
+var TIMEOUT = 1000;
+var TIMEOUTTRAFFIC = 60000;
+var TIMEOUTTRAFFICDISABLED = 750;
 var temporizadorInterval;
+var origen, destino;
+var capaTrafico;
+var bActualizaCapaTrafico;
 
 /**
  * Crea el mapa usando la API de Google maps
  */
 function onCrearMapa(){
+	inicioApp();
 	
 	if (navigator.geolocation){
 		navigator.geolocation.getCurrentPosition(function(posicion){
@@ -23,8 +29,11 @@ function onCrearMapa(){
 				{
 					zoom: 17,
 					center: new google.maps.LatLng(lat, lng),
-					mapTypeId: google.maps.MapTypeId.ROADMAP
+					mapTypeId: google.maps.MapTypeId.ROADMAP,
+					disableDefaultUI: true
 				};
+			
+			origen = opcionesMapa.center;
 		
 			if (mapa === null){
 				mapa = new google.maps.Map(document.getElementById('divmapa'), opcionesMapa);
@@ -38,11 +47,11 @@ function onCrearMapa(){
 				
 				var marker = new google.maps.Marker(opcionesMarker);
 				
-				var capaTrafico = new google.maps.TrafficLayer();
-				capaTrafico.setMap(mapa);
-				
 				//Here goes the loop
-				temporizadorInterval = setInterval(dibujaLinea, TIMEOUT);
+				temporizadorIntervalTrafico = setTimeout(function(){
+					actualizaTraficoMapa(bActualizaCapaTrafico)
+				}, TIMEOUTTRAFFICDISABLED);
+				temporizadorInterval = setTimeout(dibujaLineaYActualizaMapa, TIMEOUT);
 			}
 		});
 	}
@@ -51,10 +60,39 @@ function onCrearMapa(){
 	}
 }
 
+function inicioApp(){
+	event.preventDefault();
+	bActualizaCapaTrafico = true;
+	origen = '';
+	destino = '';
+	document.getElementById('btnDetener').disabled = false;
+	document.getElementById('btnComenzar').disabled = true;
+	
+}
+
+function actualizaTraficoMapa(actualiza){
+	if (actualiza){
+		capaTrafico = new google.maps.TrafficLayer();
+		capaTrafico.setMap(mapa);
+		bActualizaCapaTrafico = false;
+		setTimeout(function(){
+			actualizaTraficoMapa(bActualizaCapaTrafico)
+		}, TIMEOUTTRAFFIC);
+	}
+	else{
+		capaTrafico.setMap(null);
+		capaTrafico = null;
+		bActualizaCapaTrafico = true;
+		setTimeout(function(){
+			actualizaTraficoMapa(bActualizaCapaTrafico)
+		}, TIMEOUTTRAFFICDISABLED);
+	}
+}
+
 /**
  * Dibuja una linea en el mapa
  */
-function dibujaLinea(){
+function dibujaLineaYActualizaMapa(){
 	var lngRuta, latRuta;
 	var posicionRutaAnterior;
 	var posicionRuta;
@@ -81,14 +119,86 @@ function dibujaLinea(){
 		lngRutaAnterior = lngRuta;
 		latRutaAnterior = latRuta;
 		
-		alert("pasado");
+		setTimeout(dibujaLineaYActualizaMapa, TIMEOUT);
+		
+		//console.log('Antigua: ' + latRutaAnterior + ',' + lngRutaAnterior + '       Nueva: ' + latRuta + ',' + lngRuta);
 	});
 }
 
 function detener(){
+	document.getElementById('btnComenzar').disabled = false;
+	document.getElementById('btnDetener').disabled = true;
 	clearInterval(temporizadorInterval);
 }
 
+function comenzar(){
+	temporizadorInterval = setInterval(dibujaLineaYActualizaMapa, TIMEOUT);
+	document.getElementById('btnDetener').disabled = false;
+	document.getElementById('btnComenzar').disabled = true;
+}
+
 function dibujaRuta(){
+	if (origen !== ''){
+		var opcionesDireccion =
+			{
+				origin: origen,
+				destination: destino,
+				travelMode: google.maps.DirectionsTravelMode.DRIVING,
+				unitSystem: google.maps.UnitSystem.METRIC
+			}
+		
+		var servicioDireccion = new google.maps.DirectionsService();
+		servicioDireccion.route(opcionesDireccion, function(response, status){
+			if (status === google.maps.DirectionsStatus.OK){
+				new google.maps.DirectionsRenderer({
+					map: mapa,
+					directions: response
+				})
+			}
+			else{
+				alert('No ha sido posible obtener la ruta');
+			}
+		});
+	}
+}
+
+function getAutocomplete(event){
+	var servicioAutocomplete;
+	var palabraPeticion = '';
+	
+	if (document.getElementById('txtDestino').value.length > 2){
+		
+		palabraPeticion = document.getElementById('txtDestino');
+		
+		var opciones =
+			{
+				componentRestrictions: {country: 'es'}
+			};
+		
+		try{
+			servicioAutocomplete = new google.maps.places.Autocomplete(palabraPeticion, opciones);
+			
+			servicioAutocomplete.bindTo('bounds', mapa);
+			
+			google.maps.event.addListener(servicioAutocomplete, 'place_changed', function(){
+				var lugar = servicioAutocomplete.getPlace();
+				
+				if (lugar.geometry){
+					//si tiene geometry
+					if (lugar.geometry.viewport){
+						console.log(lugar.geometry.viewport);
+					}
+					else{
+						console.log(lugar.geometry.location);
+					}
+				}
+				else{
+					console.log('no se ha encontrado el sitio');
+				}
+			});
+		}catch(e){
+			console.log(e);
+		}
+	}
 	
 }
